@@ -8,4 +8,4 @@
  - https://github.com/magicleap/SuperPointPretrainedNetwork
 
  Démo :
- 'python ./magicleap_demo_superpoint.py'
+ `python ./magicleap_demo_superpoint.py`
