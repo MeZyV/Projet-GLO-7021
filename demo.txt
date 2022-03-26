@@ -1,1 +1,0 @@
-python ./magicleap_demo_superpoint.py tests/FPVfreestyle.mp4 --cuda --weights_path="models/superpoint_magicleap.pth"
