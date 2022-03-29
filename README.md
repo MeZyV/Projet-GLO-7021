@@ -11,3 +11,12 @@
 
  Démo :
  `python ./magicleap_demo_superpoint.py`
+
+# TODO
+
+ - [ ] Dataset
+ - [ ] Boucle train
+ - [ ] Reproduire article
+ - [ ] Ameliorer modele
+ - [ ] Trouver des articles en liens
+
