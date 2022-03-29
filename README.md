@@ -6,6 +6,7 @@
  Implémentations :
  - https://github.com/rpautrat/SuperPoint
  - https://github.com/eric-yyjau/pytorch-superpoint/
+ - https://github.com/omercohen93/superpoint-pytorch
  - https://github.com/magicleap/SuperPointPretrainedNetwork
 
  Démo :
