@@ -14,7 +14,6 @@
 
 # TODO
 
- - [ ] Dataset
  - [ ] Boucle train
  - [ ] Reproduire article
  - [ ] Ameliorer modele
