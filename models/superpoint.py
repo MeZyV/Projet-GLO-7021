@@ -7,8 +7,6 @@ from collections import OrderedDict
 class SuperPointNet(torch.nn.Module):
     def __init__(self, superpoint_bool):
         super(SuperPointNet, self).__init__()
-        self.relu = nn.ReLU(inplace=True)
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
         c1, c2, c3, c4, c5, d1 = 64, 64, 128, 128, 256, 256
         # Shared Encoder.
         self.encoder = nn.Sequential(OrderedDict([
