@@ -28,7 +28,6 @@ class DectectorLoss(nn.Module):
         convolution_labels = F.pixel_unshuffle(true_labels, block_size)
         # Channels = Classes
         convolution_labels = convolution_labels.permute(0, 2, 3, 1)
-        # Add dustbin channel to labels (don't know why factor 2)
         # Add dustbin channel to labels (factor 2 to save the labels with the future noise)
         convolution_labels = torch.cat([2 * convolution_labels, torch.ones((n, h_c, w_c, 1))], dim=3)
         # If two ground truth corner positions land in the same bin
@@ -48,7 +47,6 @@ class DectectorLoss(nn.Module):
         valid_mask = torch.prod(valid_mask, dim=3)
         labels[valid_mask == 0] = 65
 
-        # Get loss (ignore dustbin)
         # Get loss
         loss = nn.CrossEntropyLoss(ignore_index=65)
         output = loss(semi, labels)
