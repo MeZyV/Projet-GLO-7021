@@ -68,12 +68,9 @@ class SuperPointNet(torch.nn.Module):
             # Softmax.
             # "channel-wise Softmax" non-learned transformation
             # Not used to compute loss
-            dense = torch.exp(semi)
-            dense = dense / (torch.sum(dense, dim=0) + .00001)  # Should sum to 1.
-
+            dense = F.softmax(semi, 1)
             # Remove dustbin.
-            nodust = dense[:-1, :, :]
-
+            nodust = dense[:, :-1, :, :]
             # Upsampling
             semi = F.pixel_shuffle(nodust, 8)
 
