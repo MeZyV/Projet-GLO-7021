@@ -9,46 +9,47 @@ class DectectorLoss(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, true_labels, semi, v_mask=None):
-        DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-        true_map = true_labels
-        n, c, h, w = true_labels.size()
+    def forward(self, true_labels: torch.Tensor, semi: torch.Tensor, v_mask: torch.Tensor = None):
+        """
+        Forward pass compute detector loss
+
+        :param true_labels: Ground truth interest points pytorch tensor shaped N x 1 x H x W.
+        :param semi: Dense detector decoder output pytorch tensor shaped N x 65 x Hc x Wc.
+        :param v_mask: valid_mask size of true_labels
+        :return: Detector loss.
+        """
+
+        n, _, h, w = true_labels.size()
+        _, c, h_c, w_c = semi.size()
         block_size = 8
-        true_map = true_labels.type(torch.float)
 
-        # Softmax.
-        dense = np.exp(true_labels)
-        dense = dense / (np.sum(dense, axis=0) + .00001)  # Should sum to 1.
+        true_labels = true_labels.type(torch.float32)
+        # True labels to dense, serves for the fully-convolutional cross-entropy loss
+        convolution_labels = F.pixel_unshuffle(true_labels, block_size)
+        # Channel = Classes
+        convolution_labels = convolution_labels.permute(0, 2, 3, 1)
+        # Add dustbin channel to labels (don't know why factor 2)
+        convolution_labels = torch.cat([2 * convolution_labels, torch.ones((n, h_c, w_c, 1))], dim=3)
+        # If two ground truth corner positions land in the same bin
+        # then we randomly select one ground truth corner location
+        noise = torch.rand(convolution_labels.size()) * 0.1
+        # Get labels
+        labels = torch.argmax(convolution_labels + noise, dim=3)
 
-        # Remove dustbin.
-        nodust = dense[:-1, :, :]
-
-        # Upsampling
-        unfolded_map = F.pixel_shuffle(nodust, 8)
-
-        # unfolded_map = F.unfold(true_map, block_size, stride=block_size)
-        # unfolded_map = unfolded_map.view(n, c * block_size ** 2, h // block_size, w // block_size)
-        # unfolded_map = unfolded_map.permute(0, 2, 3, 1)
-        # shape = torch.cat([torch.tensor(unfolded_map.size())[:3], torch.tensor([1])], dim=0)
-        # unfolded_map = torch.cat([2 * unfolded_map, torch.ones(tuple(shape)).to(DEVICE)], dim=3)
-        noise = torch.rand(unfolded_map.size()) * 0.1
-        noise = noise.to(DEVICE)
-        label = torch.argmax(unfolded_map + noise, dim=3)
-        # define valid mask
+        # Define valid mask
         if v_mask is not None:
-            valid_mask = v_mask.type(torch.float32).to(DEVICE)
+            valid_mask = v_mask.type(torch.float32)
         else:
-            valid_mask = torch.ones_like(true_map, dtype=torch.float32).to(DEVICE)
-        # adjust valid_mask
-        valid_mask = F.unfold(valid_mask, block_size, stride=block_size)
-        valid_mask = valid_mask.view(n, c * block_size ** 2, h // block_size, w // block_size)
+            valid_mask = torch.ones_like(true_labels, dtype=torch.float32)
+        # Adjust valid_mask
+        valid_mask = F.pixel_unshuffle(true_labels, block_size)
         valid_mask = valid_mask.permute(0, 2, 3, 1)
         valid_mask = torch.prod(valid_mask, dim=3)
-        label[valid_mask == 0] = 65
+        labels[valid_mask == 0] = 65
 
-        # get loss
+        # Get loss (ignore dustbin)
         loss = nn.CrossEntropyLoss(ignore_index=65)
-        output = loss(semi, label)
+        output = loss(semi, labels)
         return output
 
 
