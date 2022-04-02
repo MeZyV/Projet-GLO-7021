@@ -72,7 +72,7 @@ class SuperPointNet(torch.nn.Module):
             dense = dense / (torch.sum(dense, dim=0) + .00001)  # Should sum to 1.
 
             # Remove dustbin.
-            nodust = dense[:-1, :, :]
+            nodust = dense[:, :-1, :, :]
 
             # Upsampling
             semi = F.pixel_shuffle(nodust, 8)
