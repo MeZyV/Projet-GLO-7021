@@ -9,7 +9,8 @@ class DectectorLoss(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, true_labels: torch.Tensor, semi: torch.Tensor, v_mask: torch.Tensor = None):
+    def forward(self, semi: torch.Tensor, true_labels: torch.Tensor, v_mask: torch.Tensor = None):
+        # TODO: Manage device (cause we are creating tensors inside the forward)
         """
         Forward pass compute detector loss
 
@@ -18,7 +19,6 @@ class DectectorLoss(nn.Module):
         :param v_mask: valid_mask size of true_labels
         :return: Detector loss.
         """
-
         n, _, h, w = true_labels.size()
         _, c, h_c, w_c = semi.size()
         block_size = 8
@@ -26,7 +26,7 @@ class DectectorLoss(nn.Module):
         true_labels = true_labels.type(torch.float32)
         # True labels to dense, serves for the fully-convolutional cross-entropy loss
         convolution_labels = F.pixel_unshuffle(true_labels, block_size)
-        # Channel = Classes
+        # Channels = Classes
         convolution_labels = convolution_labels.permute(0, 2, 3, 1)
         # Add dustbin channel to labels (don't know why factor 2)
         convolution_labels = torch.cat([2 * convolution_labels, torch.ones((n, h_c, w_c, 1))], dim=3)
@@ -58,15 +58,13 @@ class DescriptorLoss(nn.Module):
         super().__init__()
 
     def forward(self, DESC, warp_DESC, H, H_invert, v_mask):
-        DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
         H_invert = H_invert.unsqueeze(1)
         desc = DESC.permute(0, 2, 3, 1)
         B, Hc, Wc = tuple(desc.size())[:3]
 
         # create grid of center of HcxWc region
         cords = torch.stack(torch.meshgrid(torch.range(0, Hc - 1), torch.range(0, Wc - 1)), dim=-1).type(
-            torch.int32).to(
-            DEVICE)
+            torch.int32).to(DEVICE)
         cords = cords.unsqueeze(0)
         cords = cords * 8 + 4
 
