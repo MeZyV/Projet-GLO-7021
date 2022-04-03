@@ -32,6 +32,7 @@ class DectectorLoss(nn.Module):
         convolution_labels = torch.cat([2 * convolution_labels, torch.ones((n, h_c, w_c, 1))], dim=3)
         # If two ground truth corner positions land in the same bin
         # then we randomly select one ground truth corner location
+        # TODO: Way too random
         noise = torch.rand(convolution_labels.size()) * 0.1
         # Get labels
         labels = torch.argmax(convolution_labels + noise, dim=3)
@@ -39,13 +40,11 @@ class DectectorLoss(nn.Module):
         # Define valid mask
         if v_mask is not None:
             valid_mask = v_mask.type(torch.float32)
-        else:
-            valid_mask = torch.ones_like(true_labels, dtype=torch.float32)
-        # Adjust valid_mask
-        valid_mask = F.pixel_unshuffle(true_labels, block_size)
-        valid_mask = valid_mask.permute(0, 2, 3, 1)
-        valid_mask = torch.prod(valid_mask, dim=3)
-        labels[valid_mask == 0] = 65
+            # Adjust valid_mask
+            valid_mask = F.pixel_unshuffle(true_labels, block_size)
+            valid_mask = valid_mask.permute(0, 2, 3, 1)
+            valid_mask = torch.prod(valid_mask, dim=3)
+            labels[valid_mask == 0] = 65
 
         # Get loss
         loss = nn.CrossEntropyLoss(ignore_index=65)
