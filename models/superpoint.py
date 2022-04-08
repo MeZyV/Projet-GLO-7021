@@ -47,6 +47,7 @@ class SuperPointNet(torch.nn.Module):
         ]))
         self.superpoint_bool = superpoint_bool
 
+
     def forward(self, x, dense=True):
         """ Forward pass that jointly computes unprocessed point and descriptor
         tensors.
