@@ -78,9 +78,10 @@ class SuperPointNet(torch.nn.Module):
         # if we want superpoint model:
         if self.superpoint_bool:
             desc = self.descriptor(x)
-            dn = torch.norm(desc, p=2, dim=1)  # Compute the norm.
-            # Divide by norm to normalize.
-            desc = desc.div(torch.unsqueeze(dn, 1))
+            # if we want a descriptor the size of the input image.
+            if not dense:
+                dn = torch.norm(desc, p=2, dim=1)  # Compute the norm.
+                desc = desc.div(torch.unsqueeze(dn, 1))  # Divide by norm to normalize.
 
         # if we want magicpoint model:
         else:
