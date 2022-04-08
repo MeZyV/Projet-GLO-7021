@@ -14,7 +14,6 @@
 
 # TODO
 
- - [ ] Dataset
  - [ ] Boucle train
  - [ ] Losses
  - [ ] Reproduire article
