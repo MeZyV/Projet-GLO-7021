@@ -1,5 +1,8 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
+import numpy as np
 
 from collections import OrderedDict
 
@@ -44,7 +47,8 @@ class SuperPointNet(torch.nn.Module):
         ]))
         self.superpoint_bool = superpoint_bool
 
-    def forward(self, x):
+
+    def forward(self, x, dense=True):
         """ Forward pass that jointly computes unprocessed point and descriptor
         tensors.
         Input
@@ -60,13 +64,25 @@ class SuperPointNet(torch.nn.Module):
         # Detector Head.
         semi = self.detector(x)
 
+        # if we want a heatmap the size of the input image.
+        if not dense:
+            # Softmax.
+            # "channel-wise Softmax" non-learned transformation
+            # Not used to compute loss
+            dense = F.softmax(semi, 1)
+            # Remove dustbin.
+            nodust = dense[:, :-1, :, :]
+            # Upsampling
+            semi = F.pixel_shuffle(nodust, 8)
+
         # Descriptor Head.
         # if we want superpoint model:
         if self.superpoint_bool:
             desc = self.descriptor(x)
-            dn = torch.norm(desc, p=2, dim=1)  # Compute the norm.
-            # Divide by norm to normalize.
-            desc = desc.div(torch.unsqueeze(dn, 1))
+            # if we want a descriptor the size of the input image.
+            if not dense:
+                dn = torch.norm(desc, p=2, dim=1)  # Compute the norm.
+                desc = desc.div(torch.unsqueeze(dn, 1))  # Divide by norm to normalize.
 
         # if we want magicpoint model:
         else:
