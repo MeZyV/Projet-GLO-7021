@@ -15,7 +15,9 @@
 # TODO
 
  - [ ] Boucle train
+ - [ ] Losses
  - [ ] Reproduire article
  - [ ] Ameliorer modele
  - [ ] Trouver des articles en liens
+
 
