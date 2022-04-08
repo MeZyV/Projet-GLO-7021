@@ -53,42 +53,69 @@ class DectectorLoss(nn.Module):
 
 
 class DescriptorLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, lambda_d=250, pos_margin=1, neg_margin=0.2):
         super().__init__()
+        self.lambda_d = lambda_d
+        self.pos_margin, self.neg_margin = pos_margin, neg_margin
 
-    def forward(self, DESC, warp_DESC, H, H_invert, v_mask):
-        H_invert = H_invert.unsqueeze(1)
-        desc = DESC.permute(0, 2, 3, 1)
-        B, Hc, Wc = tuple(desc.size())[:3]
+    def forward(self, desc_, wrap_desc_, H):
+        """
+        Forward pass compute descriptor loss
+
+        :param desc_: Dense descriptor decoder output pytorch tensor shaped N x D x Hc x Wc. (base image)
+        :param wrap_desc_: Dense descriptor decoder output pytorch tensor shaped N x D x Hc x Wc. (wrapped image)
+        :param H: Homography pytorch tensor shaped N x 3 x 3. (used to wrap the image)
+        :return: Descriptor loss.
+        """
+        # Get the C dimension
+        # H = H.unsqueeze(1)
+
+        block_size = 8
+        b, d, h_c, w_c = desc_.size()
+        desc = desc_.permute(0, 2, 3, 1)
+        wrap_desc = desc.permute(0, 2, 3, 1)
 
         # create grid of center of HcxWc region
-        cords = torch.stack(torch.meshgrid(torch.range(0, Hc - 1), torch.range(0, Wc - 1)), dim=-1).type(
-            torch.int32).to(DEVICE)
-        cords = cords.unsqueeze(0)
-        cords = cords * 8 + 4
+        coords = torch.stack(torch.meshgrid(torch.arange(0, h_c), torch.arange(0, w_c)), dim=-1).type(
+            torch.int32)
+        coords = coords.unsqueeze(0)
+        coords = coords * block_size + block_size // 2
 
-        # change from ij to xy cords to warp grid
-        xy_cords = torch.cat((cords[:, :, :, 1].unsqueeze(3), cords[:, :, :, 0].unsqueeze(3)), dim=-1)
-        xy_warp_cords = K.geometry.warp.warp_grid(xy_cords, H_invert)
+        # change from ij (yx) to xy coords to warp grid
+        xy_coords = torch.cat((coords[:, :, :, 1].unsqueeze(3), coords[:, :, :, 0].unsqueeze(3)), dim=-1)
+
+        # Wrap xy coords
+
+        # List of points homogene
+        xy_coords = xy_coords.view(h_c * w_c, 2)
+        xy_coords = torch.cat((xy_coords, torch.ones(h_c * w_c, 1)), dim=-1)
+
+        # Apply homography
+        # TODO: do it but in torch
+        xy_np = xy_coords.permute(1, 0).cpu().numpy()
+        h_np = H.cpu().numpy()
+        xy_coords_wrap = torch.tensor(np.dot(h_np, xy_np))
+        xy_coords_wrap = xy_coords_wrap[:, :2, :] / xy_coords_wrap[:, -1, :]
+        xy_coords_wrap = xy_coords_wrap.permute(0, 2, 1).view(b, h_c, w_c, 2)
 
         # change back to ij
-        warp_cords = torch.cat((xy_warp_cords[:, :, :, 1].unsqueeze(3), xy_warp_cords[:, :, :, 0].unsqueeze(3)), dim=-1)
+        warp_coords = torch.cat((xy_coords_wrap[:, :, :, 1].unsqueeze(3), xy_coords_wrap[:, :, :, 0].unsqueeze(3)), dim=-1)
 
         # calc S
         '''
         S[id_batch, h, w, h', w'] == 1 if the point of coordinates (h, w) warped by 
         the homography is at a distance from (h', w') less than 8 and 0 otherwise
         '''
-        cords = cords.view((1, 1, 1, Hc, Wc, 2)).type(torch.float)
-        warp_cords = warp_cords.view((B, Hc, Wc, 1, 1, 2))
-        distance_map = torch.norm(cords - warp_cords, dim=-1)
+        coords = coords.view((1, 1, 1, h_c, w_c, 2)).type(torch.float)
+        warp_coords = warp_coords.view((b, h_c, w_c, 1, 1, 2))
+        distance_map = torch.norm(coords - warp_coords, dim=-1)
         S = distance_map <= 7.5
         S = S.type(torch.float)
 
         # descriptors
-        desc = DESC.view((B, Hc, Wc, 1, 1, -1))
+        desc = desc_.view((b, h_c, w_c, 1, 1, -1))
         desc = F.normalize(desc, dim=-1)
-        warp_desc = warp_DESC.view((B, 1, 1, Hc, Wc, -1))
+        warp_desc = wrap_desc_.view((b, 1, 1, h_c, w_c, -1))
         warp_desc = F.normalize(warp_desc, dim=-1)
 
         # dot product calc
@@ -101,30 +128,23 @@ class DescriptorLoss(nn.Module):
         relu = torch.nn.ReLU()
         dot_product = relu(dot_product)
 
-        dot_product = F.normalize(dot_product.view((B, Hc, Wc, Hc * Wc)), dim=3)
-        dot_product = dot_product.view((B, Hc, Wc, Hc, Wc))
+        dot_product = F.normalize(dot_product.view((b, h_c, w_c, h_c * w_c)), dim=3)
+        dot_product = dot_product.view((b, h_c, w_c, h_c, w_c))
 
-        dot_product = F.normalize(dot_product.view((B, Hc * Wc, Hc, Wc)), dim=1)
-        dot_product = dot_product.view((B, Hc, Wc, Hc, Wc))
+        dot_product = F.normalize(dot_product.view((b, h_c * w_c, h_c, w_c)), dim=1)
+        dot_product = dot_product.view((b, h_c, w_c, h_c, w_c))
 
-        # Compute the loss
-        pos_margin = 1
-        neg_margin = 0.2
-        lambda_d = 250
+        # Compute the Hinge loss
+        pos_margin = self.pos_margin
+        neg_margin = self.neg_margin
+        lambda_d = self.lambda_d
         positive_dist = torch.max(torch.zeros_like(dot_product), pos_margin - dot_product)
         negative_dist = torch.max(torch.zeros_like(dot_product), dot_product - neg_margin)
         loss = lambda_d * S * positive_dist + (1 - S) * negative_dist
 
-        # adjust valid_mask
-        block_size = 8
-        valid_mask = F.unfold(v_mask, block_size, stride=block_size)
-        valid_mask = valid_mask.view(B, block_size ** 2, Hc, Wc)
-        valid_mask = valid_mask.permute(0, 2, 3, 1)
-        valid_mask = torch.prod(valid_mask, dim=3)
-        valid_mask = valid_mask.view((B, 1, 1, Hc, Wc))
-
-        normalization = torch.sum(valid_mask, dim=(1, 2, 3, 4)) * Hc * Wc
-        loss = torch.sum(loss * valid_mask, dim=(1, 2, 3, 4)) / normalization
+        # Mean loss over h_c w_c h'_c w'_c
+        normalization = (h_c * w_c) ** 2
+        loss = torch.sum(loss, dim=(1, 2, 3, 4)) / normalization
         loss = torch.sum(loss)
 
         return loss
