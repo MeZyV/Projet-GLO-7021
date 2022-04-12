@@ -1,6 +1,6 @@
 from torchvision import transforms
 import torch
-import skimage
+import skimage.transform
 
 class ToTensor(object):
     """Convert ndarrays in sample to Tensors."""

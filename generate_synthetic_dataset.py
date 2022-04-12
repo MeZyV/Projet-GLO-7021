@@ -5,7 +5,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose
 
-from transforms.transforms import Rescale, ToTensor, ToGray
+from transforms import Rescale, ToTensor, ToGray
 from datasets.synthetic import mySyntheticShapes
 
 train_on_gpu = torch.cuda.is_available()
@@ -65,7 +65,7 @@ config = {
     }
 }
 
-num_imgs_returned=100000
+num_imgs_returned=10000
 dataset = mySyntheticShapes(config, num_imgs_returned, transform)
 dataloader = DataLoader(dataset, batch_size=1, shuffle=True, num_workers=0)
 
