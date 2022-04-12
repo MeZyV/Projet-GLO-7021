@@ -1,12 +1,12 @@
 import os
 import cv2
 import pandas as pd
-import numpy as np
 
 import torch
 from torch.utils.data import Dataset
 
-
+# Download data from https://www.kaggle.com/competitions/image-matching-challenge-2022/data
+# Extract content of the archive to ./data/ImageMatching
 class ImageMatching(Dataset):
 
     def __init__(self, path, verbose=True, transform=None, subset=None):
