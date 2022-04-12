@@ -1,25 +1,64 @@
 import torch
+import kornia as K
+from datetime import datetime
 from torch.utils.data import DataLoader
-from torchvision.transforms import Compose, Resize, ColorJitter, Grayscale
+from torchvision.transforms import Compose, ToTensor, ColorJitter, Grayscale, GaussianBlur, ToPILImage
+from torch.utils.tensorboard import SummaryWriter
 
-from datasets.coco import COCO
-from PIL import Image
+from datasets.synthetic import SyntheticShapes_dataset
+from utils.plot import plot_imgs
+from utils.points import cords_to_map
+from utils.train import train_synthetic_magic
+from models.superpoint import SuperPointNet
+from models.losses import DectectorLoss
 
-print(f'Using torch v{torch.__version__}')
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(f'Using device: {device}')
+train_on_gpu = torch.cuda.is_available()
+print(torch.__version__)
+
+if not train_on_gpu:
+    DEVICE = 'cpu'
+    print('CUDA is not available.  Training on CPU ...')
+else:
+    DEVICE = 'cuda'
+    print('CUDA is available!  Training on GPU ...')
 
 transform = Compose([
-    Resize((240, 320), Image.BICUBIC),
-    ColorJitter(brightness=(0.7, 1.3)),
-    Grayscale(num_output_channels=1)
+    ToPILImage(),
+    ColorJitter(brightness=(0.5,1.4)),
+    Grayscale(num_output_channels=1),
+    GaussianBlur(9, sigma=(1, 1.8)),
+    ToTensor()
 ])
 
-dataset = COCO(
-    csv_file='/datasets/COCO/labeled_coco.csv',
-    root_dir='/data/COCO/val2017', 
+landmark_transform = Compose([
+    ToTensor()
+])
+
+dataset = SyntheticShapes_dataset(
+    csv_file='./data/synthetic_shapes/syn_shape_labels.csv',
+    root_dir='./data/synthetic_shapes/images/', 
     transform=transform, 
+    landmark_transform=landmark_transform,
     landmark_bool=True
 )
-
 dataloader = DataLoader(dataset, batch_size=5, shuffle=True)
+
+print(len(dataset))
+print(len(dataloader))
+
+writer = SummaryWriter(f'./logs/magic_train/{datetime.now().strftime("%m%d-%H%M")}')
+
+model = SuperPointNet(superpoint_bool=False)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+loss_fn = DectectorLoss()
+
+train_synthetic_magic(
+    model=model, 
+    optimizer=optimizer,
+    loss_fn=loss_fn, 
+    dataloader=dataloader,
+    writer=writer, 
+    save_path='.', 
+    filename='test.pt',
+    device=DEVICE
+)

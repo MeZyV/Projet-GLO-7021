@@ -1,6 +1,11 @@
+import os
+import cv2
 import numpy as np
+import pandas as pd
 from torch.utils.data import Dataset
+from torchvision.transforms.functional import pil_to_tensor
 from datasets.synthetic_shapes_functions import *
+
 
 drawing_primitives = [
     'draw_lines',
@@ -39,3 +44,41 @@ class mySyntheticShapes(Dataset):
             sample = self.transform(sample)
         
         return sample
+
+
+class SyntheticShapes_dataset(Dataset):
+
+    def __init__(self, csv_file, root_dir, transform=None, landmark_bool=False, landmark_transform=None):
+        self.landmarks_frame = pd.read_csv(csv_file)
+        self.root_dir = root_dir
+        self.transform = transform
+        self.landmark_transform = landmark_transform
+        self.landmark_bool = landmark_bool
+
+    def __len__(self):
+        return len(self.landmarks_frame)
+
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+
+        img_name = os.path.join(self.root_dir,self.landmarks_frame.iloc[idx, 0])
+        image = cv2.imread(img_name, cv2.IMREAD_GRAYSCALE)
+
+        if self.landmark_bool:
+            landmarks = self.landmarks_frame.iloc[idx, 1:]
+            landmarks = np.array([landmarks])
+            landmarks = landmarks.astype('float').reshape(-1, 3)
+        else:
+            landmarks = 0
+
+        if self.transform:
+            image = self.transform(image)
+        if self.landmark_transform:
+            landmarks = self.landmark_transform(landmarks)
+        
+        return {
+            'image': image,
+            'landmarks': landmarks
+        }
+
