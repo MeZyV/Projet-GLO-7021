@@ -9,18 +9,19 @@ class DectectorLoss(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, semi: torch.Tensor, true_labels: torch.Tensor, v_mask: torch.Tensor = None):
+    def forward(self, true_labels: torch.Tensor, pred: torch.Tensor, v_mask: torch.Tensor = None, device: str = 'cpu'):
         # TODO: Manage device (cause we are creating tensors inside the forward)
         """
         Forward pass compute detector loss
 
         :param true_labels: Ground truth interest points pytorch tensor shaped N x 1 x H x W.
-        :param semi: Dense detector decoder output pytorch tensor shaped N x 65 x Hc x Wc.
+        :param pred: Dense detector decoder output pytorch tensor shaped N x 65 x Hc x Wc.
         :param v_mask: valid_mask size of true_labels
+        :param device: where to load the tensors used in the loss
         :return: Detector loss.
         """
         n, _, h, w = true_labels.size()
-        _, c, h_c, w_c = semi.size()
+        _, c, h_c, w_c = pred.size()
         block_size = 8
 
         true_labels = true_labels.type(torch.float32)
@@ -29,11 +30,11 @@ class DectectorLoss(nn.Module):
         # Channels = Classes
         convolution_labels = convolution_labels.permute(0, 2, 3, 1)
         # Add dustbin channel to labels (factor 2 to save the labels with the future noise)
-        convolution_labels = torch.cat([2 * convolution_labels, torch.ones((n, h_c, w_c, 1))], dim=3)
+        convolution_labels = torch.cat([2 * convolution_labels, torch.ones((n, h_c, w_c, 1)).to(device)], dim=3)
         # If two ground truth corner positions land in the same bin
         # then we randomly select one ground truth corner location
         # TODO: Way too random
-        noise = torch.rand(convolution_labels.size()) * 0.1
+        noise = (torch.rand(convolution_labels.size()) * 0.1).to(device)
         # Get labels
         labels = torch.argmax(convolution_labels + noise, dim=3)
 
@@ -48,7 +49,7 @@ class DectectorLoss(nn.Module):
 
         # Get loss
         loss = nn.CrossEntropyLoss(ignore_index=65)
-        output = loss(semi, labels)
+        output = loss(pred, labels)
         return output
 
 
@@ -58,13 +59,14 @@ class DescriptorLoss(nn.Module):
         self.lambda_d = lambda_d
         self.pos_margin, self.neg_margin = pos_margin, neg_margin
 
-    def forward(self, desc_, wrap_desc_, H):
+    def forward(self, desc_, wrap_desc_, H, device: str = 'cpu'):
         """
         Forward pass compute descriptor loss
 
         :param desc_: Dense descriptor decoder output pytorch tensor shaped N x D x Hc x Wc. (base image)
         :param wrap_desc_: Dense descriptor decoder output pytorch tensor shaped N x D x Hc x Wc. (wrapped image)
         :param H: Homography pytorch tensor shaped N x 3 x 3. (used to wrap the image)
+        :param device: where to load the tensors used in the loss
         :return: Descriptor loss.
         """
         # Get the C dimension
@@ -99,7 +101,8 @@ class DescriptorLoss(nn.Module):
         xy_coords_wrap = xy_coords_wrap.permute(0, 2, 1).view(b, h_c, w_c, 2)
 
         # change back to ij
-        warp_coords = torch.cat((xy_coords_wrap[:, :, :, 1].unsqueeze(3), xy_coords_wrap[:, :, :, 0].unsqueeze(3)), dim=-1)
+        warp_coords = torch.cat((xy_coords_wrap[:, :, :, 1].unsqueeze(3), xy_coords_wrap[:, :, :, 0].unsqueeze(3)),
+                                dim=-1)
 
         # calc S
         '''
