@@ -13,3 +13,4 @@ data
 
 # Env
 .venv
+.venv-projet
