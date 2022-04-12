@@ -23,7 +23,7 @@ def train_synthetic_magic(model, optimizer, loss_fn, dataloader, writer, save_pa
             
             #loss
             optimizer.zero_grad()
-            loss = loss_fn(map, chi_points)
+            loss = loss_fn(map, chi_points, device=device)
             loss.backward()
             optimizer.step()
             writer.add_scalar("Loss/train", loss, e*len(dataloader)+iter)
