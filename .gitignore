@@ -10,3 +10,6 @@ __pycache__
 
 # data
 data
+
+# Env
+.venv
