@@ -8,15 +8,14 @@ from torchvision.transforms import Compose
 from transforms import Rescale, ToTensor, ToGray
 from datasets.synthetic import mySyntheticShapes
 
-train_on_gpu = torch.cuda.is_available()
-print(torch.__version__)
+print(f'PyTorch version : {torch.__version__}')
 
-if not train_on_gpu:
-    DEVICE = 'cpu'
-    print('CUDA is not available.  Training on CPU ...')
-else:
+if torch.cuda.is_available():
     DEVICE = 'cuda'
     print('CUDA is available!  Training on GPU ...')
+else:
+    DEVICE = 'cpu'
+    print('CUDA is not available.  Training on CPU ...')
 
 transform = Compose([
     Rescale((240, 320)),
