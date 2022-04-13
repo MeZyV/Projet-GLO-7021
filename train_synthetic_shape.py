@@ -1,26 +1,23 @@
 import torch
-import kornia as K
 from datetime import datetime
 from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, ToTensor, ColorJitter, Grayscale, GaussianBlur, ToPILImage
 from torch.utils.tensorboard import SummaryWriter
 
 from datasets.synthetic import SyntheticShapes_dataset
-from utils.plot import plot_imgs
-from utils.points import cords_to_map
-from utils.train import train_synthetic_magic
+from utils.trainer import train_synthetic_magic
 from models.superpoint import SuperPointNet
 from models.losses import DectectorLoss
 
-train_on_gpu = torch.cuda.is_available()
-print(torch.__version__)
+print(f'PyTorch version : {torch.__version__}')
 
-if not train_on_gpu:
-    DEVICE = 'cpu'
-    print('CUDA is not available.  Training on CPU ...')
-else:
+if torch.cuda.is_available():
     DEVICE = 'cuda'
-    print('CUDA is available!  Training on GPU ...')
+    print('Training on GPU.')
+else:
+    DEVICE = 'cpu'
+    print('Training on CPU.')
+
 
 transform = Compose([
     ToPILImage(),
@@ -43,8 +40,7 @@ dataset = SyntheticShapes_dataset(
 )
 dataloader = DataLoader(dataset, batch_size=5, shuffle=True)
 
-print(len(dataset))
-print(len(dataloader))
+print(f'Training on {len(dataset)} images')
 
 writer = SummaryWriter(f'./logs/magic_train/{datetime.now().strftime("%m%d-%H%M")}')
 
@@ -58,7 +54,9 @@ train_synthetic_magic(
     loss_fn=loss_fn, 
     dataloader=dataloader,
     writer=writer, 
-    save_path='.', 
+    save_path='./models/weights', 
     filename='test.pt',
+    epochs=100,
+    saver_every=None,
     device=DEVICE
 )
