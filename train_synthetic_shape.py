@@ -18,10 +18,9 @@ else:
     DEVICE = 'cpu'
     print('Training on CPU.')
 
-
 transform = Compose([
     ToPILImage(),
-    ColorJitter(brightness=(0.5,1.4)),
+    ColorJitter(brightness=(0.5, 1.4)),
     Grayscale(num_output_channels=1),
     GaussianBlur(9, sigma=(1, 1.8)),
     ToTensor()
@@ -33,8 +32,8 @@ landmark_transform = Compose([
 
 dataset = SyntheticShapes_dataset(
     csv_file='./data/synthetic_shapes/syn_shape_labels.csv',
-    root_dir='./data/synthetic_shapes/images/', 
-    transform=transform, 
+    root_dir='./data/synthetic_shapes/images/',
+    transform=transform,
     landmark_transform=landmark_transform,
     landmark_bool=True
 )
@@ -49,13 +48,13 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 loss_fn = DectectorLoss()
 
 train_synthetic_magic(
-    model=model, 
+    model=model,
     optimizer=optimizer,
-    loss_fn=loss_fn, 
+    loss_fn=loss_fn,
     dataloader=dataloader,
-    writer=writer, 
-    save_path='./models/weights', 
-    filename='test.pt',
+    writer=writer,
+    save_path='./models/weights',
+    filename='base_detector.pt',
     epochs=100,
     saver_every=None,
     device=DEVICE
