@@ -25,29 +25,25 @@ def cords_to_map(label,im_size, thres_point=0.015, device=True):
 
 
 # get coordinates set [x,y,V] where V is the value from point map
-def map_to_cords(BATCH_SIZE, iter, points,names):
-    cord = torch.where(points>0)
-    y = cord[2].cpu()
-    y = np.array(y.unsqueeze(1))
-    x = cord[3].cpu()
-    x = np.array(x.unsqueeze(1))
-    prob = points[cord].cpu()
-    prob = np.array(prob.unsqueeze(1))
-    full_cord = np.concatenate((x,y,prob),axis=1)
-    full_cord = full_cord.reshape((BATCH_SIZE,-1))
-    new_cords = np.concatenate((names[BATCH_SIZE*iter:BATCH_SIZE*(iter+1),:],full_cord), axis=1)
-    return new_cords
+def map_to_cords(BATCH_SIZE, iter, points, names):
+    points = points.cpu()
+    coord = torch.where(points > 0)
+    full_coord = torch.stack((coord[3], coord[2], points[coord]), dim=1)
+    full_coord = full_coord.view((BATCH_SIZE, -1)).numpy()
+    batch_names = names[BATCH_SIZE*iter:BATCH_SIZE*(iter+1)].reshape(-1, 1)
+    new_coords = np.concatenate((batch_names, full_coord), axis=1)
+    return new_coords
 
 
-#perform non maximum supresion, posible to get tok k point, and/or all points above thres
-def nms(prob, size, topk=None, thres=None):
+# perform non maximum supression, possible to get tok k point, and/or all points above threshold
+def nms(prob, size, topk=None, thresh=None):
     orig_shape = prob.size()
-    pool = torch.nn.MaxPool2d(size,size, int(size/2), return_indices=True)
+    pool = torch.nn.MaxPool2d(size, size, int(size/2), return_indices=True)
     unpool = torch.nn.MaxUnpool2d(size, size, int(size/2))
     folded_points, ind = pool(prob)
     points = unpool(folded_points, ind, orig_shape)
 
-    if not topk is None:
+    if topk is not None:
         # Reshape and calculate positions of top 10%
         points = points.view(points.size(0), points.size(1), -1)
         nb_pixels = points.size(2)
@@ -58,8 +54,8 @@ def nms(prob, size, topk=None, thres=None):
         res = torch.zeros_like(points)
         res.scatter_(2, ret.indices, ret.values)
         points = res.view(orig_shape)
-    if not thres is None:
-        points[points<thres] = 0
+    if thresh is not None:
+        points[points < thresh] = 0
     return points
 
 #perform depth to space on detector output of the superpoint model

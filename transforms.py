@@ -54,13 +54,25 @@ class Rescale(object):
 
 class ToGray(object):
     """Convert ndarrays in sample to Tensors."""
+    def __init__(self, landmarks_bool=True):
+        self.landmarks_bool = landmarks_bool
 
     def __call__(self, sample):
-        image, landmarks = sample
-        G = transforms.Grayscale(num_output_channels=1)
-        if image.size()[0]>1:
+
+        if self.landmarks_bool:
+            image, landmarks = sample
+        else:
+            image = sample
+
+        if image.size()[0] > 1:
+            G = transforms.Grayscale(num_output_channels=1)
             image = G(image)
-        return (image,landmarks)   
+
+        if self.landmarks_bool:
+            return image, landmarks
+        else:
+            return image
+
 
 
 

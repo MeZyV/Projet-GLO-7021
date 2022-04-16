@@ -80,6 +80,8 @@ class SuperPointNet(torch.nn.Module):
             desc = self.descriptor(x)
             # if we want a descriptor the size of the input image.
             if not dense:
+                n, c, h, w = semi.size()
+                desc = F.interpolate(desc, size=(h, w), mode='bicubic')
                 dn = torch.norm(desc, p=2, dim=1)  # Compute the norm.
                 desc = desc.div(torch.unsqueeze(dn, 1))  # Divide by norm to normalize.
 
