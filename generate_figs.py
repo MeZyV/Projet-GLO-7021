@@ -1,7 +1,6 @@
 from matplotlib.ft2font import LOAD_NO_BITMAP
 import matplotlib.pyplot as plt
 import pandas as pd
-import numpy as np
 import cv2
 import os
 

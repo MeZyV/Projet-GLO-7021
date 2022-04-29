@@ -37,9 +37,16 @@ dataset = SyntheticShapes_dataset(
     landmark_transform=landmark_transform,
     landmark_bool=True
 )
-dataloader = DataLoader(dataset, batch_size=5, shuffle=True)
 
-print(f'Training on {len(dataset)} images')
+train_dataset, valid_dataset = torch.utils.data.random_split(
+    dataset, (10980, 1220)
+)
+
+train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True)
+valid_dataloader = DataLoader(valid_dataset, batch_size=16, shuffle=False)
+
+print(f'Training on {len(train_dataset)} images')
+print(f'Validation on {len(valid_dataset)} images')
 
 writer = SummaryWriter(f'./logs/magic_train/{datetime.now().strftime("%m%d-%H%M")}')
 
@@ -51,11 +58,12 @@ train_synthetic_magic(
     model=model,
     optimizer=optimizer,
     loss_fn=loss_fn,
-    dataloader=dataloader,
+    train_dataloader=train_dataloader,
+    valid_dataloader=valid_dataloader,
     writer=writer,
     save_path='./models/weights',
     filename='base_detector.pt',
     epochs=100,
-    saver_every=None,
+    saver_every=1,
     device=DEVICE
 )
