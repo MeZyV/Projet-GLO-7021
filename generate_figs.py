@@ -18,7 +18,7 @@ def plot_synthetic_data(image_path, landmark_path, shape=(4, 4), figsize=(12, 16
         ax[idx // shape[0], idx % shape[1]].imshow(img)
         ax[idx // shape[0], idx % shape[1]].axis('off')
     plt.show()
-    plt.savefig('images/synthetic_data.png')
+    fig.savefig('images/synthetic_data.png')
 
 if __name__ == '__main__':
     image_path = './data/synthetic_shapes/images/'
