@@ -53,7 +53,7 @@ def train_synthetic_magic(model, optimizer, loss_fn, train_dataloader, valid_dat
                 pbar.set_description(f"Epoch: {epoch + 1}/{epochs} | Loss: {loss.item():.4f}")
             
         if saver_every and epoch % saver_every == 0:
-            torch.save(model.state_dict(), save_path + filename)
+            torch.save(model.state_dict(), save_path + filename + f'_{epoch}.pt')
     
     # Save weights
     torch.save(model.state_dict(), save_path + filename)

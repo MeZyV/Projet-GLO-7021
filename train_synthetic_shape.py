@@ -63,7 +63,7 @@ train_synthetic_magic(
     writer=writer,
     save_path='./models/weights',
     filename='base_detector.pt',
-    epochs=100,
+    epochs=10,
     saver_every=1,
     device=DEVICE
 )
