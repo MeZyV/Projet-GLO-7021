@@ -33,5 +33,4 @@ tensorboard serve --logdir ./logs
 
  - [ ] Reproduire article
  - [ ] Ameliorer modele
- - [ ] Trouver des articles en liens
  - [ ] Kaggle
