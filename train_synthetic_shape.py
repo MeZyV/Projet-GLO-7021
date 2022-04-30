@@ -61,7 +61,7 @@ train_synthetic_magic(
     train_dataloader=train_dataloader,
     valid_dataloader=valid_dataloader,
     writer=writer,
-    save_path='./models/weights',
+    save_path='./models/weights/',
     filename='base_detector.pt',
     epochs=10,
     saver_every=1,

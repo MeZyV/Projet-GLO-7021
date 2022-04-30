@@ -11,6 +11,7 @@ __pycache__
 # data
 data
 logs
+backups_weights
 
 # Env
 .venv
