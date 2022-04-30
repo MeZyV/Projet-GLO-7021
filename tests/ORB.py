@@ -1,6 +1,5 @@
 import os
 import cv2
-import numpy as np
 from datasets.imagematching import ImageCovisibility
 from torchvision import transforms as T
 from matplotlib import pyplot as plt
