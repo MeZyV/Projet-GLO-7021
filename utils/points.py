@@ -4,22 +4,18 @@ from torchvision import  transforms
 import PIL
 
 # get point map from coordinates set [x,y,V] where V is the value
-def cords_to_map(label,im_size, thres_point=0.015, device=True):
-    if device:
-            DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-    else:
-            DEVICE = 'cpu'
-    map = torch.zeros(im_size).type(torch.double).to(DEVICE)
+def cords_to_map(label, im_size, thres_point=0.015, device='cpu'):
+    map = torch.zeros(im_size).type(torch.double).to(device)
     if len(label.size())<4:
         label = label.unsqueeze(1)
     label = label.type(torch.double)
     vals = label[:,:,:,2].flatten()
     x = label[:,:,:,0].type(torch.long).flatten()
     y = label[:,:,:,1].type(torch.long).flatten()
-    B = torch.arange(im_size[0], dtype=torch.long)[:, None].expand(im_size[0], label.size(2)).flatten().to(DEVICE)
+    B = torch.arange(im_size[0], dtype=torch.long)[:, None].expand(im_size[0], label.size(2)).flatten().to(device)
     map[B[vals>0],0,y[vals>0],x[vals>0]]=vals[vals>0]
-    one = torch.tensor(1).to(DEVICE)
-    zero = torch.tensor(0).to(DEVICE)
+    one = torch.tensor(1).to(device)
+    zero = torch.tensor(0).to(device)
     map = torch.where(map>thres_point, one, zero)
     return map
 

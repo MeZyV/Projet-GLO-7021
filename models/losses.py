@@ -30,7 +30,7 @@ class DectectorLoss(nn.Module):
         # Channels = Classes
         convolution_labels = convolution_labels.permute(0, 2, 3, 1)
         # Add dustbin channel to labels (factor 2 to save the labels with the future noise)
-        convolution_labels = torch.cat([2 * convolution_labels, torch.ones((n, h_c, w_c, 1)).to(device)], dim=3)
+        convolution_labels = torch.cat([2 * convolution_labels.to(device), torch.ones((n, h_c, w_c, 1)).to(device)], dim=3)
         # If two ground truth corner positions land in the same bin
         # then we randomly select one ground truth corner location
         # TODO: Way too random
