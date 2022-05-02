@@ -7,6 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 from datasets.synthetic import SyntheticShapes_dataset
 from utils.trainer import train_synthetic_magic
 from models.superpoint import SuperPointNet
+from models.superattentionpoint import SuperAttentionPointNet
 from models.losses import DectectorLoss
 
 print(f'PyTorch version : {torch.__version__}')
@@ -38,8 +39,11 @@ dataset = SyntheticShapes_dataset(
     landmark_bool=True
 )
 
+train_split = len(dataset)
+valid_split = int(train_split * 0.1)
+train_split = train_split - valid_split
 train_dataset, valid_dataset = torch.utils.data.random_split(
-    dataset, (10980, 1220)
+    dataset, (train_split, valid_split)
 )
 
 train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True)
@@ -51,6 +55,7 @@ print(f'Validation on {len(valid_dataset)} images')
 writer = SummaryWriter(f'./logs/magic_train/{datetime.now().strftime("%m%d-%H%M")}')
 
 model = SuperPointNet(superpoint_bool=False)
+model = SuperAttentionPointNet(768, 768, 1, 16, 1, 8, (240, 360))
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 loss_fn = DectectorLoss()
 
