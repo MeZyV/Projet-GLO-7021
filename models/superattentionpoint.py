@@ -74,9 +74,7 @@ class SuperAttentionPointNet(torch.nn.Module):
             self,
             embed_dim,
             hidden_dim,
-            num_channels,
             num_heads,
-            num_layers,
             patch_size,
             img_size,
             desc=False,
@@ -87,8 +85,7 @@ class SuperAttentionPointNet(torch.nn.Module):
         :param hidden_dim: Dimensionality of the hidden layer in the feed-forward networks
                          within the Transformer
         :param num_channels: Number of channels of the input (3 for RGB)
-        :param num_heads: Number of heads to use in the Multi-Head Attention block
-        :param num_layers: Number of layers to use in the Transformer
+        :param num_heads: Number of heads to use in the Multi-Head Attention block per layers
         :param patch_size: Number of pixels that the patches have per dimension
         :param img_size: Size of an image for -> Maximum number of patches on the height an image can have
         :param dropout: Amount of dropout to apply in the feed-forward network and
@@ -104,9 +101,9 @@ class SuperAttentionPointNet(torch.nn.Module):
         self.embed_dim = embed_dim
 
         # Layers/Networks
-        self.input_layer = nn.Linear(num_channels * (patch_size ** 2), embed_dim)
+        self.input_layer = nn.Linear(patch_size ** 2, embed_dim)
         self.transformer = nn.Sequential(
-            *(AttentionBlock(embed_dim, hidden_dim, num_heads, dropout=dropout) for _ in range(num_layers))
+            *(AttentionBlock(embed_dim, hidden_dim, num_h, dropout=dropout) for num_h in num_heads)
         )
         self.dropout = nn.Dropout(dropout)
 
@@ -115,7 +112,8 @@ class SuperAttentionPointNet(torch.nn.Module):
 
         # Detector Head.
         self.detector = nn.Sequential(OrderedDict([
-            ('convPb', nn.Conv2d(embed_dim, 65, kernel_size=1, stride=1, padding=0)),
+            ('output_layer', nn.Linear(embed_dim, 65)),
+            ('output_fn', nn.ReLU(inplace=True))
         ]))
 
         # Descriptor Head.
@@ -123,12 +121,10 @@ class SuperAttentionPointNet(torch.nn.Module):
 
     def forward(self, x, dense=True):
         # Preprocess input
-        print(x.size())
         x = img_to_patch(x, self.patch_size)
+
         B, _, _ = x.shape
         x = self.input_layer(x)
-
-        print(x.size())
 
         # Add positional encoding
         x = x + self.pos_embedding
@@ -139,10 +135,9 @@ class SuperAttentionPointNet(torch.nn.Module):
 
         # Sequence to patched image
         x = sequence_to_img(x, B, self.patched_img_size, self.embed_dim)
-        print(x.size())
 
         # Detector Head.
-        semi = self.detector(x)
+        semi = self.detector(x.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
 
         # if we want a heatmap the size of the input image.
         if not dense:

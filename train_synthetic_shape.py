@@ -46,16 +46,23 @@ train_dataset, valid_dataset = torch.utils.data.random_split(
     dataset, (train_split, valid_split)
 )
 
-train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True)
-valid_dataloader = DataLoader(valid_dataset, batch_size=16, shuffle=False)
+train_dataloader = DataLoader(train_dataset, batch_size=12, shuffle=True)
+valid_dataloader = DataLoader(valid_dataset, batch_size=12, shuffle=False)
 
 print(f'Training on {len(train_dataset)} images')
 print(f'Validation on {len(valid_dataset)} images')
 
 writer = SummaryWriter(f'./logs/magic_train/{datetime.now().strftime("%m%d-%H%M")}')
 
-model = SuperPointNet(superpoint_bool=False)
-model = SuperAttentionPointNet(768, 768, 1, 16, 1, 8, (240, 360))
+MODEL_ = "Attention"  # "SuperPoint"
+if MODEL_ == "Attention":
+    model = SuperAttentionPointNet(embed_dim=512, hidden_dim=768, num_heads=(4, 8, 4, 2),
+                                   patch_size=8, img_size=(240, 320))
+else:
+    model = SuperPointNet(superpoint_bool=False)
+print(MODEL_)
+print(model)
+
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 loss_fn = DectectorLoss()
 
@@ -67,7 +74,7 @@ train_synthetic_magic(
     valid_dataloader=valid_dataloader,
     writer=writer,
     save_path='./models/weights/',
-    filename='base_detector.pt',
+    filename='base_detector_' + MODEL_,
     epochs=10,
     saver_every=1,
     device=DEVICE

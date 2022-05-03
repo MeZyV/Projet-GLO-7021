@@ -8,7 +8,6 @@ def train_synthetic_magic(model, optimizer, loss_fn, train_dataloader, valid_dat
     for epoch in range(epochs):
         pbar = tqdm(train_dataloader)
         for iter, batch in enumerate(pbar):
-            
             im = batch['image'].to(device).type(torch.float)
             label = batch['landmarks'].to(device)
             
@@ -56,4 +55,4 @@ def train_synthetic_magic(model, optimizer, loss_fn, train_dataloader, valid_dat
             torch.save(model.state_dict(), save_path + filename + f'_{epoch}.pt')
     
     # Save weights
-    torch.save(model.state_dict(), save_path + filename)
+    torch.save(model.state_dict(), save_path + filename + '.pt')
