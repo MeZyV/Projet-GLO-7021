@@ -46,7 +46,7 @@ class COCO_unsupervised(Dataset):
             params_homog = self.config['augmentation']['homographic']
             N_image = image.repeat(self.n_homographies, 1, 1, 1)
 
-            N_image, homography, homography_invert = get_homography(N_image, **params_homog)
+            N_image, homography, homography_invert = get_homography(N_image, img_name, **params_homog)
 
             return {
                 'image': N_image,
@@ -62,7 +62,7 @@ class COCO_unsupervised(Dataset):
 
 class COCO(Dataset):
 
-    def __init__(self, csv_file, root_dir, transform=None, landmark_bool=False):
+    def __init__(self, csv_file, root_dir, transform=None, landmark_transform=None, landmark_bool=False):
         """
         Args:
             csv_file (string): Path to the csv file with annotations.
@@ -73,6 +73,7 @@ class COCO(Dataset):
         self.landmarks_frame = pd.read_csv(csv_file)
         self.root_dir = root_dir
         self.transform = transform
+        self.landmarks_transform = landmark_transform
         self.landmark_bool = landmark_bool
 
     def __len__(self):
@@ -84,7 +85,11 @@ class COCO(Dataset):
 
         img_name = os.path.join(self.root_dir, self.landmarks_frame.iloc[idx, 0])
         image = Image.open(img_name)
-        image = pil_to_tensor(image)
+
+        if self.transform:
+            image = self.transform(image)
+        else:
+            image = pil_to_tensor(image)
 
         if self.landmark_bool:
             landmarks = self.landmarks_frame.iloc[idx, 1:]
@@ -93,12 +98,10 @@ class COCO(Dataset):
         else:
             landmarks = 0
 
-        if self.transform:
-            image = self.transform(image)
+        if self.landmarks_transform:
+            landmarks = self.landmarks_transform(landmarks)
 
-        twin_im, homography, homography_invert = get_homography(image)
-
-        landmarks = torch.tensor(landmarks, dtype=torch.float32)
+        twin_im, homography, homography_invert = get_homography(image, img_name)
 
         return {
             'image': image,
@@ -109,17 +112,29 @@ class COCO(Dataset):
         }
 
 
-def get_homography(image: torch.Tensor, degrees=(-5, 5), translate=(0.2, 0.2), scale=(1.2, 1.5), shear=(-15, 15)):
+def get_homography(image: torch.Tensor, idx, degrees=(-5, 5), translate=(0.2, 0.2), scale=(1.2, 1.5), shear=(-15, 15)):
     # TODO: not enough variations
     aug = RandomAffine(degrees=degrees, translate=translate, scale=scale, shear=shear, return_transform=True)
-    twin_im, homography = aug(image)
+    try:
+        twin_im, homography = aug(image)
+    except TypeError as e:
+        print("Error on homography")
+        print(e)
+        print(idx)
+        print(image)
+        device = 'cuda' if image.is_cuda else 'cpu'
+        return (image,
+                torch.eye(3).repeat(image.size(0), 1).to(device),
+                torch.eye(3).repeat(image.size(0), 1).to(device))
+
     if len(homography.size()) < 3:
         homography = homography.unsqueeze(0)
 
-    # homography_invert = torch.inverse(homography)
-    homography_invert = invert_homography(homography)
+    homography_invert = torch.inverse(homography)
+    # homography_invert = invert_homography(homography)
 
-    return twin_im, homography, homography_invert
+    # Squeeze batch dim for the collate fn to stack on the right dim
+    return twin_im.squeeze(0), homography.squeeze(0), homography_invert.squeeze(0)
 
 
 def invert_homography(homography):

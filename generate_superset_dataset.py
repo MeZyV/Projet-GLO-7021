@@ -10,6 +10,7 @@ import kornia as K
 from transforms import ToGray
 from datasets.coco import COCO_unsupervised
 from models.superpoint import SuperPointNet
+from models.superattentionpoint import SuperAttentionPointNet
 from utils.points import map_to_cords, nms
 
 print(f'PyTorch version : {torch.__version__}')
@@ -27,7 +28,7 @@ transform = Compose([
 ])
 
 config = {
-    'n_homographies': 50,
+    'n_homographies': 25,
     'augmentation': {
         'homographic': {
             'degrees': (-15, 15),
@@ -38,15 +39,23 @@ config = {
     }
 }
 
-filename = './data/coco/coco_val_labels.csv'
+filename = './data/coco/coco_val_attention_labels.csv'
 im_path = './data/coco/val2017/'
-weights_superpoint = './models/weights/superpoint.pth'
+weights_superpoint = './models/weights/base_detector_Attention_6.pt'
 
 dataset = COCO_unsupervised(config, im_path, transform)
 dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
 names = dataset.names
 
-model = SuperPointNet(superpoint_bool=False).to(DEVICE)
+MODEL_ = "Attention"  # "SuperPoint"
+if MODEL_ == "Attention":
+    model = SuperAttentionPointNet(embed_dim=512, hidden_dim=768, num_heads=(4, 8, 4, 2),
+                                   patch_size=8, img_size=(240, 320))
+else:
+    model = SuperPointNet(superpoint_bool=False)
+print(MODEL_)
+model.to(DEVICE)
+
 model.load_state_dict(torch.load(weights_superpoint))
 model.eval()
 
@@ -59,10 +68,10 @@ with open(filename, 'w') as csvfile:
     head = np.array(['x{},y{},conf{}'.format(i, i, i).split(',') for i in range(N_POINTS)]).reshape((1, -1))
     head = np.concatenate((np.array([['im_name']]), head), axis=1)
     csvwriter.writerows(head)
-    for iter, dict_ in enumerate(dataloader):
-        dict_ = {k: torch.flatten(v, 0, 1).to(DEVICE).type(torch.float) for k, v in dict_.items()}
-        im, H, H_inv = dict_.values()
-        with torch.no_grad():
+    with torch.no_grad():
+        for iter, dict_ in enumerate(dataloader):
+            dict_ = {k: torch.flatten(v, 0, 1).to(DEVICE).type(torch.float) for k, v in dict_.items()}
+            im, H, H_inv = dict_.values()
             # put warps through net
             heatmap, desc = model(im, dense=False)
             #heatmap = heatmap.cpu()
