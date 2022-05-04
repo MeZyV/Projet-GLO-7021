@@ -75,7 +75,7 @@ class DescriptorLoss(nn.Module):
         block_size = 8
         b, d, h_c, w_c = desc_.size()
         desc = desc_.permute(0, 2, 3, 1)
-        wrap_desc = desc.permute(0, 2, 3, 1)
+        wrap_desc = wrap_desc_.permute(0, 2, 3, 1)
 
         # create grid of center of HcxWc region
         coords = torch.stack(torch.meshgrid(torch.arange(0, h_c), torch.arange(0, w_c)), dim=-1).type(
@@ -97,28 +97,27 @@ class DescriptorLoss(nn.Module):
         xy_np = xy_coords.permute(1, 0).cpu().numpy()
         h_np = H.cpu().numpy()
         xy_coords_wrap = torch.tensor(np.dot(h_np, xy_np))
-        xy_coords_wrap = xy_coords_wrap[:, :2, :] / xy_coords_wrap[:, -1, :]
-        xy_coords_wrap = xy_coords_wrap.permute(0, 2, 1).view(b, h_c, w_c, 2)
+        xy_coords_wrap = xy_coords_wrap[:, :2, :] / xy_coords_wrap[:, -1, :].unsqueeze(1)
+        xy_coords_wrap = xy_coords_wrap.permute(0, 2, 1).reshape(b, h_c, w_c, 2)
 
         # change back to ij
         warp_coords = torch.cat((xy_coords_wrap[:, :, :, 1].unsqueeze(3), xy_coords_wrap[:, :, :, 0].unsqueeze(3)),
                                 dim=-1)
 
         # calc S
-        '''
-        S[id_batch, h, w, h', w'] == 1 if the point of coordinates (h, w) warped by 
-        the homography is at a distance from (h', w') less than 8 and 0 otherwise
-        '''
+        # S[id_batch, h, w, h', w'] == 1 if the point of coordinates (h, w) warped by
+        # the homography is at a distance from (h', w') less than 8 and 0 otherwise
+
         coords = coords.view((1, 1, 1, h_c, w_c, 2)).type(torch.float)
         warp_coords = warp_coords.view((b, h_c, w_c, 1, 1, 2))
         distance_map = torch.norm(coords - warp_coords, dim=-1)
         S = distance_map <= 7.5
-        S = S.type(torch.float)
+        S = S.type(torch.float).to(device)
 
         # descriptors
-        desc = desc_.view((b, h_c, w_c, 1, 1, -1))
+        desc = desc.unsqueeze(3).unsqueeze(3)  # (b, h_c, w_c, 1, 1, d)
         desc = F.normalize(desc, dim=-1)
-        warp_desc = wrap_desc_.view((b, 1, 1, h_c, w_c, -1))
+        warp_desc = wrap_desc.unsqueeze(1).unsqueeze(1)  # (b, 1, 1, h_c, w_c, d)
         warp_desc = F.normalize(warp_desc, dim=-1)
 
         # dot product calc
@@ -128,8 +127,7 @@ class DescriptorLoss(nn.Module):
         descriptor at position (h', w') in the warped image
         '''
         dot_product = torch.sum(desc * warp_desc, dim=-1)
-        relu = torch.nn.ReLU()
-        dot_product = relu(dot_product)
+        dot_product = F.relu(dot_product)
 
         dot_product = F.normalize(dot_product.view((b, h_c, w_c, h_c * w_c)), dim=3)
         dot_product = dot_product.view((b, h_c, w_c, h_c, w_c))
@@ -143,6 +141,7 @@ class DescriptorLoss(nn.Module):
         lambda_d = self.lambda_d
         positive_dist = torch.max(torch.zeros_like(dot_product), pos_margin - dot_product)
         negative_dist = torch.max(torch.zeros_like(dot_product), dot_product - neg_margin)
+
         loss = lambda_d * S * positive_dist + (1 - S) * negative_dist
 
         # Mean loss over h_c w_c h'_c w'_c

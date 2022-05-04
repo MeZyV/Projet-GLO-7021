@@ -8,7 +8,7 @@ def cords_to_map(label, im_size, thres_point=0.015, device='cpu'):
     map = torch.zeros(im_size).type(torch.double).to(device)
     if len(label.size())<4:
         label = label.unsqueeze(1)
-    label = label.type(torch.double)
+    label = label.type(torch.double).to(device)
     vals = label[:,:,:,2].flatten()
     x = label[:,:,:,0].type(torch.long).flatten()
     y = label[:,:,:,1].type(torch.long).flatten()
