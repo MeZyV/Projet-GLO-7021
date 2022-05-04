@@ -14,14 +14,24 @@ Démo :
 python ./magicleap_demo_superpoint.py
 ```
 
-Generate synthetic_shapes :
+Generate synthetic shapes :
 ```bash
 python ./generate_synthetic_dataset.py
 ```
 
-Train on synthetic_shape :
+Train on synthetic shapes :
 ```bash
 python ./train_synthetic_shape.py
+```
+
+Generate pseudo ground truth ms-coco :
+```bash
+python ./generate_superset_dataset.py
+```
+
+Train on pseudo ground truth ms-coco :
+```bash
+python ./train_ms_coco.py
 ```
 
 Run TensorBoard server :
@@ -31,6 +41,5 @@ tensorboard serve --logdir ./logs
 
 # TODO
 
- - [ ] Reproduire article
  - [ ] Ameliorer modele
  - [ ] Kaggle
